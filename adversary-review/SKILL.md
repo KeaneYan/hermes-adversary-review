@@ -1,7 +1,7 @@
 ---
 name: adversary-review
 description: Use a delegated subagent to adversarially review drafts before sending them, reducing factual mistakes, overclaiming, and omissions.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Adversary Review
@@ -216,6 +216,34 @@ Important:
 - The reviewer is a guardrail, not the final authority
 - Do not blindly apply every suggestion
 - If the review causes real changes, just send the improved draft; no need to mention the review step
+
+## Handling Review Failures
+
+Review calls can fail because of API timeouts, invalid credentials, model/provider routing problems, rate limits, or because the current execution context does not expose `delegate_task`. A review failure should **not** block the main answer, but it must be disclosed instead of pretending the review passed.
+
+Rules:
+- Send the main draft anyway.
+- Add a short failure note after the draft.
+- Do not write generic "tool unavailable" unless the real error is tool registration/exposure.
+- Preserve the concrete failure class when possible.
+
+Recommended failure labels:
+
+| Failure signal | User-facing note |
+| --- | --- |
+| `Background review denied non-whitelisted tool` / `Only memory/skill tools are allowed` | `Adversary review failed: background review allowlist blocked delegate_task.` |
+| `quota exhausted`, `HTTP 429`, `rate limit` | `Adversary review failed: delegation model quota/rate limit.` |
+| `Codex`, `Copilot ACP`, `acp command` | `Adversary review failed: subagent was routed to an incompatible ACP/Codex backend.` |
+| `unknown tool`, `tool not found`, `not registered` | `Adversary review failed: delegate_task is not registered or not exposed in this session.` |
+| Empty or unparsable result | `Adversary review failed: review subtask returned no parseable result.` |
+
+Example:
+
+```text
+Adversary review failed: delegation model quota/rate limit. The answer above was not adversarially reviewed.
+```
+
+Do not over-diagnose. If the raw error is not available, say that the review subtask failed without a parseable reason rather than inventing one.
 
 ## Real Examples
 
